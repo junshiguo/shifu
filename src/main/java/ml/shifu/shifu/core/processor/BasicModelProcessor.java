@@ -564,7 +564,7 @@ public class BasicModelProcessor {
         try {
             String normPigPath = pathFinder.getScriptPath("scripts/Normalize.pig");
             if(modelConfig.getNormalize().getIsForXGB()) {
-                normPigPath = pathFinder.getScriptPath("script/NormalizeXGB.pig");
+                normPigPath = pathFinder.getScriptPath("scripts/NormalizeXGB.pig");
             }
             paramsMap.put(Constants.IS_COMPRESS, "true");
             paramsMap.put(Constants.IS_NORM_FOR_CLEAN, "true");
