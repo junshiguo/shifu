@@ -38,8 +38,8 @@ public class ModelNormalizeConf {
         WEIGHT_WOE_ZSCORE, WEIGHT_WOE_ZSCALE,
         ZSCALE_ONEHOT,
         DISCRETE_ZSCORE, DISCRETE_ZSCALE // for numerical feature, use low bondwary in each bin, the first bin use min 
-                        // value, missing value use raw mean value, then do zscale by raw mean and raw std-dev;
-                        // for categorical feature, pos rate is used.
+        // value, missing value use raw mean value, then do zscale by raw mean and raw std-dev;
+        // for categorical feature, pos rate is used.
         ;
 
         public boolean isWoe() {
@@ -84,6 +84,12 @@ public class ModelNormalizeConf {
      * selected columns are read. So far Parquet format only supports NN algorithm.
      */
     private Boolean isParquet = Boolean.FALSE;
+
+    /**
+     * If this norm is for running in XGBoost, norm step would output XGBoost input format.
+     * That is, use NormalizeXGBUDF and output with blank space as delimiter.
+     */
+    private Boolean isForXGB = Boolean.FALSE;
 
     public Double getStdDevCutOff() {
         return stdDevCutOff;
@@ -139,6 +145,23 @@ public class ModelNormalizeConf {
     @JsonProperty
     public void setIsParquet(Boolean isParquet) {
         this.isParquet = isParquet;
+    }
+
+    /**
+     * @return the isForXGB
+     */
+    @JsonIgnore
+    public Boolean getIsForXGB() {
+        return isForXGB;
+    }
+
+    /**
+     * @param isForXGB
+     *            the isForXGB to set
+     */
+    @JsonProperty
+    public void setIsForXGB(Boolean isForXGB) {
+        this.isForXGB = isForXGB;
     }
 
     @Override

@@ -130,8 +130,8 @@ public class BasicModelProcessor {
                 // such stats steps should all be called after 'shifu stats', this is actually to call VoidUpdater
                 boolean strictCallVoidUpdate = (step == ModelStep.STATS)
                         && (getBooleanParam(this.params, Constants.IS_COMPUTE_CORR)
-                            || getBooleanParam(this.params, Constants.IS_COMPUTE_PSI)
-                            || getBooleanParam(this.params, Constants.IS_REBIN));
+                                || getBooleanParam(this.params, Constants.IS_COMPUTE_PSI)
+                                || getBooleanParam(this.params, Constants.IS_REBIN));
 
                 // update ColumnConfig and save to disk
                 ColumnConfigUpdater.updateColumnConfigFlags(modelConfig, columnConfigList, step, strictCallVoidUpdate);
@@ -563,6 +563,9 @@ public class BasicModelProcessor {
 
         try {
             String normPigPath = pathFinder.getScriptPath("scripts/Normalize.pig");
+            if(modelConfig.getNormalize().getIsForXGB()) {
+                normPigPath = pathFinder.getScriptPath("script/NormalizeXGB.pig");
+            }
             paramsMap.put(Constants.IS_COMPRESS, "true");
             paramsMap.put(Constants.IS_NORM_FOR_CLEAN, "true");
             paramsMap.put(Constants.PATH_NORMALIZED_DATA, pathFinder.getCleanedDataPath());

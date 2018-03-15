@@ -36,7 +36,7 @@ SET mapreduce.output.fileoutputformat.compress.type block;
 
 
 DEFINE IsDataFilterOut  ml.shifu.shifu.udf.PurifyDataUDF('$source_type', '$path_model_config', '$path_column_config');
-DEFINE Normalize        ml.shifu.shifu.udf.NormalizeUDF('$source_type', '$path_model_config', '$path_column_config', '$is_norm_for_clean');
+DEFINE Normalize        ml.shifu.shifu.udf.NormalizeXGBUDF('$source_type', '$path_model_config', '$path_column_config', '$is_norm_for_clean');
 
 raw = LOAD '$path_raw_data' USING PigStorage('$delimiter', '-noschema');
 filtered = FILTER raw BY IsDataFilterOut(*);
@@ -45,4 +45,4 @@ normalized = FOREACH filtered GENERATE Normalize(*);
 normalized = FILTER normalized BY $0 IS NOT NULL;
 normalized = FOREACH normalized GENERATE FLATTEN($0);
 
-STORE normalized INTO '$pathNormalizedData' USING PigStorage('|', '-schema');
+STORE normalized INTO '$pathNormalizedData' USING PigStorage(' ', '-schema');

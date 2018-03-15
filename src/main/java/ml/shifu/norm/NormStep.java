@@ -95,7 +95,11 @@ public class NormStep extends Step<List<ColumnConfig>> {
                     // this condition is for comment, no matter post train enabled or not, only norm results will be
                     // stored since new post train solution
                 }
-                normPigPath = pathFinder.getScriptPath("scripts/Normalize.pig");
+                if(modelConfig.getNormalize().getIsForXGB()) {
+                    normPigPath = pathFinder.getScriptPath("scripts/NormalizeXGB.pig");
+                } else {
+                    normPigPath = pathFinder.getScriptPath("scripts/Normalize.pig");
+                }
             }
             paramsMap.put(Constants.IS_COMPRESS, "true");
             paramsMap.put(Constants.IS_NORM_FOR_CLEAN, "false");

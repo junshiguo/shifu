@@ -49,7 +49,8 @@ import org.apache.pig.impl.util.Utils;
 import org.apache.pig.tools.pigstats.PigStatusReporter;
 
 /**
- * NormalizeUDF class normalize the training data for parquet format.
+ * NormalizeXGBUDF class normalize the training data for parquet format for XGBoost usage.
+ * This is copied from {@link NormalizeUDF}. The only change is {@link #exec(Tuple)} with the format of tuple changed.
  */
 public class NormalizeXGBUDF extends AbstractTrainerUDF<Tuple> {
 
@@ -206,6 +207,9 @@ public class NormalizeXGBUDF extends AbstractTrainerUDF<Tuple> {
         final NormType normType = modelConfig.getNormalizeType();
 
         if(!this.isForExpressions) {
+            // placeholder for tag
+            tuple.append(0);
+
             for(int i = 0; i < input.size(); i++) {
                 ColumnConfig config = columnConfigList.get(i);
                 String val = (input.get(i) == null) ? "" : input.get(i).toString().trim();
@@ -228,7 +232,7 @@ public class NormalizeXGBUDF extends AbstractTrainerUDF<Tuple> {
                                     WarnInNormalizeUDF.INVALID_TAG);
                             return null;
                         }
-                        tuple.append(type);
+                        tuple.set(0, type);
                     } else {
                         int index = -1;
                         for(int j = 0; j < tags.size(); j++) {
@@ -242,7 +246,7 @@ public class NormalizeXGBUDF extends AbstractTrainerUDF<Tuple> {
                             log.error("Invalid data! The target value is not listed - " + rawTag);
                             return null;
                         }
-                        tuple.append(index);
+                        tuple.set(0, index);
                     }
                     continue;
                 }
@@ -252,7 +256,9 @@ public class NormalizeXGBUDF extends AbstractTrainerUDF<Tuple> {
                     if(config.isCategorical()) {
                         Map<String, Integer> map = this.categoricalIndexMap.get(config.getColumnNum());
                         // map should not be null, no need check if map is null, if val not in binCategory, set it to ""
-                        tuple.append(((map.get(val) == null || map.get(val) == -1)) ? "" : val);
+                        if(map.get(val) != null && map.get(val) != -1) {
+                            tuple.append(String.valueOf(i) + ":" + val);
+                        }
                     } else {
                         Double normVal = 0d;
                         try {
@@ -261,7 +267,7 @@ public class NormalizeXGBUDF extends AbstractTrainerUDF<Tuple> {
                             log.debug("Not decimal format " + val + ", using default!");
                             normVal = Normalizer.defaultMissingValue(config);
                         }
-                        tuple.append(df.format(normVal));
+                        tuple.append(String.valueOf(i) + ":" + df.format(normVal));
                     }
                 } else {
                     // append normalize data. exclude data clean, for data cleaning, no need check good or bad candidate
@@ -272,15 +278,17 @@ public class NormalizeXGBUDF extends AbstractTrainerUDF<Tuple> {
                         List<Double> normVals = Normalizer.normalize(config, val, cutoff, normType,
                                 this.categoryMissingNormType);
                         for(Double normVal: normVals) {
-                            tuple.append(df.format(normVal));
+                            tuple.append(String.valueOf(i) + ":" + df.format(normVal));
                         }
                     } else {
-                        tuple.append(config.isMeta() ? val : null);
+                        // tuple.append(config.isMeta() ? val : null);
                     }
                 }
             }
         } else {
             int rawSize = input.size();
+            // placeholder for tag
+            tuple.append(0);
             for(int i = 0; i < this.columnConfigList.size(); i++) {
                 ColumnConfig config = this.columnConfigList.get(i);
                 int newIndex = i >= rawSize ? i % rawSize : i;
@@ -297,22 +305,23 @@ public class NormalizeXGBUDF extends AbstractTrainerUDF<Tuple> {
                                 WarnInNormalizeUDF.INVALID_TAG);
                         return null;
                     }
-                    tuple.append(type);
+                    tuple.set(0, type);
                 } else if(CommonUtils.isGoodCandidate(config, super.hasCandidates, modelConfig.isRegression())) {
                     List<Double> normVals = Normalizer.normalize(config, val, cutoff, normType,
                             this.categoryMissingNormType);
                     for(Double normVal: normVals) {
-                        tuple.append(df.format(normVal));
+                        tuple.append(String.valueOf(i) + ":" + df.format(normVal));
                     }
-                } else {
-                    tuple.append(config.isMeta() ? val : null);
+                    // } else {
+                    // tuple.append(config.isMeta() ? val : null);
                 }
             }
         }
 
         // append tuple with weight.
-        double weight = evaluateWeight(weightExpr, weightContext);
-        tuple.append(weight);
+        // TODO: weight for xgboost needs to be in another file
+        // double weight = evaluateWeight(weightExpr, weightContext);
+        // tuple.append(weight);
 
         return tuple;
     }
