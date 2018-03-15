@@ -220,6 +220,11 @@
 			<artifactId>commons-lang3</artifactId>
 			<version>3.3.2</version>
 		</dependency>
+		<dependency>
+			<groupId>ml.dmlc</groupId>
+			<artifactId>xgboost4j</artifactId>
+			<version>0.7</version>
+		</dependency>
 	</dependencies>
 	<build>
 		<resources>
