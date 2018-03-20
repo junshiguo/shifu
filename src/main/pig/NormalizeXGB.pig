@@ -28,8 +28,8 @@ SET mapred.reduce.tasks.speculative.execution true;
 SET mapreduce.map.speculative true;
 SET mapreduce.reduce.speculative true;
 -- compress outputs
-SET mapred.output.compress $is_compress;
-SET mapreduce.output.fileoutputformat.compress $is_compress;
+SET mapred.output.compress false;
+SET mapreduce.output.fileoutputformat.compress false;
 SET mapred.map.output.compress.codec org.apache.hadoop.io.compress.GzipCodec;
 SET mapreduce.output.fileoutputformat.compress.codec org.apache.hadoop.io.compress.GzipCodec;
 SET mapreduce.output.fileoutputformat.compress.type block;
@@ -45,4 +45,4 @@ normalized = FOREACH filtered GENERATE Normalize(*);
 normalized = FILTER normalized BY $0 IS NOT NULL;
 normalized = FOREACH normalized GENERATE FLATTEN($0);
 
-STORE normalized INTO '$pathNormalizedData' USING PigStorage(' ', '-schema');
+STORE normalized INTO '$pathNormalizedData' USING PigStorage(' ', '');

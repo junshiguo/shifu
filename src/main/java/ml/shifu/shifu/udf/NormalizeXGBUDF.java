@@ -258,6 +258,8 @@ public class NormalizeXGBUDF extends AbstractTrainerUDF<Tuple> {
                         // map should not be null, no need check if map is null, if val not in binCategory, set it to ""
                         if(map.get(val) != null && map.get(val) != -1) {
                             tuple.append(String.valueOf(i) + ":" + val);
+                        } else {
+                            tuple.append(String.valueOf(i) + ":");
                         }
                     } else {
                         Double normVal = 0d;
@@ -267,7 +269,9 @@ public class NormalizeXGBUDF extends AbstractTrainerUDF<Tuple> {
                             log.debug("Not decimal format " + val + ", using default!");
                             normVal = Normalizer.defaultMissingValue(config);
                         }
-                        tuple.append(String.valueOf(i) + ":" + df.format(normVal));
+                        if(normVal <= Float.MAX_VALUE && normVal >= Float.MIN_VALUE) {
+                            tuple.append(String.valueOf(i) + ":" + df.format(normVal));
+                        }
                     }
                 } else {
                     // append normalize data. exclude data clean, for data cleaning, no need check good or bad candidate
