@@ -323,9 +323,8 @@ public class NormalizeXGBUDF extends AbstractTrainerUDF<Tuple> {
         }
 
         // append tuple with weight.
-        // TODO: weight for xgboost needs to be in another file
-        // double weight = evaluateWeight(weightExpr, weightContext);
-        // tuple.append(weight);
+         double weight = evaluateWeight(weightExpr, weightContext);
+         tuple.set(0, String.valueOf((Integer) tuple.get(0)) + ":" + weight);
 
         return tuple;
     }
