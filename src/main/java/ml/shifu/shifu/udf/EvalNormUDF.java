@@ -16,6 +16,7 @@
 package ml.shifu.shifu.udf;
 
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -53,6 +54,7 @@ public class EvalNormUDF extends AbstractTrainerUDF<Tuple> {
     @SuppressWarnings("unused")
     private static final String SCHEMA_PREFIX = "eval::";
     private static final String ORIG_POSTFIX = "_orig";
+    private DecimalFormat df = new DecimalFormat("#.######");
 
     private EvalConfig evalConfig;
     private String[] headers;
@@ -68,6 +70,11 @@ public class EvalNormUDF extends AbstractTrainerUDF<Tuple> {
      * (name, column config) map for quick index
      */
     private Map<String, ColumnConfig> columnConfigMap = new HashMap<String, ColumnConfig>();
+
+    /**
+     * For categorical feature, a map is used to save query time in execution
+     */
+    private Map<Integer, Map<String, Integer>> categoricalIndexMap = new HashMap<Integer, Map<String, Integer>>();
 
     /**
      * Valid meta size which is in final output
@@ -192,8 +199,8 @@ public class EvalNormUDF extends AbstractTrainerUDF<Tuple> {
                             outputNames.add(columnConfig.getColumnName());
                         }
                     } else {
-                        throw new RuntimeException("Variable - " + columnConfig.getColumnName()
-                                + " couldn't be found in eval dataset!");
+                        throw new RuntimeException(
+                                "Variable - " + columnConfig.getColumnName() + " couldn't be found in eval dataset!");
                     }
                 }
             }
@@ -206,18 +213,33 @@ public class EvalNormUDF extends AbstractTrainerUDF<Tuple> {
             try {
                 this.scIndex = Integer.parseInt(this.scoreName.toLowerCase().replaceAll("model", ""));
             } catch (Exception e) {
-                throw new RuntimeException("Invalid setting for performanceScoreSelector in EvalConfig - "
-                        + this.scoreName);
+                throw new RuntimeException(
+                        "Invalid setting for performanceScoreSelector in EvalConfig - " + this.scoreName);
             }
         }
         this.scale = scale;
 
         if(UDFContext.getUDFContext() != null && UDFContext.getUDFContext().getJobConf() != null) {
-            this.isOutputRaw = Boolean.TRUE.toString().equalsIgnoreCase(
-                    UDFContext.getUDFContext().getJobConf().get(Constants.SHIFU_EVAL_NORM_OUTPUTRAW, Boolean.FALSE.toString()));
+            this.isOutputRaw = Boolean.TRUE.toString().equalsIgnoreCase(UDFContext.getUDFContext().getJobConf()
+                    .get(Constants.SHIFU_EVAL_NORM_OUTPUTRAW, Boolean.FALSE.toString()));
         } else {
             this.isOutputRaw = Boolean.TRUE.toString().equalsIgnoreCase(
                     Environment.getProperty(Constants.SHIFU_EVAL_NORM_OUTPUTRAW, Boolean.FALSE.toString()));
+        }
+
+        for(ColumnConfig config: columnConfigList) {
+            if(config.isCategorical()) {
+                Map<String, Integer> map = new HashMap<String, Integer>();
+                if(config.getBinCategory() != null) {
+                    for(int i = 0; i < config.getBinCategory().size(); i++) {
+                        List<String> catValues = CommonUtils.flattenCatValGrp(config.getBinCategory().get(i));
+                        for(String cval: catValues) {
+                            map.put(cval, i);
+                        }
+                    }
+                }
+                this.categoricalIndexMap.put(config.getColumnNum(), map);
+            }
         }
     }
 
@@ -226,10 +248,11 @@ public class EvalNormUDF extends AbstractTrainerUDF<Tuple> {
             // here to initialize modelRunner, this is moved from constructor to here to avoid OOM in client side.
             // UDF in pig client will be initialized to get some metadata issues
             @SuppressWarnings("deprecation")
-            List<BasicML> models = CommonUtils.loadBasicModels(modelConfig, evalConfig, evalConfig.getDataSet()
-                    .getSource(), evalConfig.getGbtConvertToProb(), evalConfig.getGbtScoreConvertStrategy());
-            this.modelRunner = new ModelRunner(modelConfig, columnConfigList, this.headers, evalConfig.getDataSet()
-                    .getDataDelimiter(), models);
+            List<BasicML> models = CommonUtils.loadBasicModels(modelConfig, evalConfig,
+                    evalConfig.getDataSet().getSource(), evalConfig.getGbtConvertToProb(),
+                    evalConfig.getGbtScoreConvertStrategy());
+            this.modelRunner = new ModelRunner(modelConfig, columnConfigList, this.headers,
+                    evalConfig.getDataSet().getDataDelimiter(), models);
             this.modelRunner.setScoreScale(Integer.parseInt(this.scale));
         }
 
@@ -239,30 +262,68 @@ public class EvalNormUDF extends AbstractTrainerUDF<Tuple> {
         }
 
         Tuple tuple = TupleFactory.getInstance().newTuple();
-        for(int i = 0; i < this.outputNames.size(); i++) {
-            String name = this.outputNames.get(i);
-            String raw = rawDataNsMap.get(new NSColumn(name));
-            if(i == 0) {
-                tuple.append(raw);
-            } else if(i == 1) {
-                tuple.append(StringUtils.isEmpty(raw) ? "1" : raw);
-            } else if(i > 1 && i < 2 + validMetaSize) {
-                // [2, 2 + validMetaSize) are meta columns
-                tuple.append(raw);
-            } else {
-                ColumnConfig columnConfig = this.columnConfigMap.get(name);
-                List<Double> normVals = Normalizer.normalize(columnConfig, raw,
-                        this.modelConfig.getNormalizeStdDevCutOff(), this.modelConfig.getNormalizeType());
-                if(this.isOutputRaw) {
+        if(!this.evalConfig.getIsForXGB()) {
+            for(int i = 0; i < this.outputNames.size(); i++) {
+                String name = this.outputNames.get(i);
+                String raw = rawDataNsMap.get(new NSColumn(name));
+                if(i == 0) {
                     tuple.append(raw);
+                } else if(i == 1) {
+                    tuple.append(StringUtils.isEmpty(raw) ? "1" : raw);
+                } else if(i > 1 && i < 2 + validMetaSize) {
+                    // [2, 2 + validMetaSize) are meta columns
+                    tuple.append(raw);
+                } else {
+                    ColumnConfig columnConfig = this.columnConfigMap.get(name);
+                    List<Double> normVals = Normalizer.normalize(columnConfig, raw,
+                            this.modelConfig.getNormalizeStdDevCutOff(), this.modelConfig.getNormalizeType());
+                    if(this.isOutputRaw) {
+                        tuple.append(raw);
+                    }
+                    for(Double normVal: normVals) {
+                        tuple.append(normVal);
+                    }
                 }
-                for(Double normVal: normVals) {
-                    tuple.append(normVal);
+            }
+        } else {
+            boolean isForClean = this.evalConfig.getIsForClean();
+            for(int i = 0; i < this.outputNames.size(); i++) {
+                String name = this.outputNames.get(i);
+                String raw = rawDataNsMap.get(new NSColumn(name));
+                if(i == 0) {
+                    tuple.append(raw);
+                } else if(i == 1) {
+                    if(StringUtils.isEmpty(raw)) {
+                        tuple.set(0, tuple.get(0) + ":1");
+                    } else {
+                        tuple.set(0, tuple.get(0) + ":" + raw);
+                    }
+                } else if(i >= 2 + validMetaSize) {
+                    ColumnConfig columnConfig = this.columnConfigMap.get(name);
+                    if(isForClean) {
+                        if(columnConfig.isCategorical()) {
+                            Map<String, Integer> map = this.categoricalIndexMap.get(columnConfig.getColumnNum());
+                            if(map.get(raw) != null && map.get(raw) != -1) {
+                                tuple.append(String.valueOf(columnConfig.getColumnNum()) + ":" + raw);
+                            }
+                        } else {
+                            Double normVal = 0d;
+                            try {
+                                normVal = Double.parseDouble(raw);
+                            } catch (Exception e) {
+                                log.debug("Not decimal format " + raw + ", using default!");
+                                normVal = Normalizer.defaultMissingValue(columnConfig);
+                            }
+                            if(normVal <= Float.MAX_VALUE && normVal >= Float.MIN_VALUE) {
+                                tuple.append(String.valueOf(columnConfig.getColumnNum()) + ":" + df.format(normVal));
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        if(this.isAppendScore) {
+        if(this.isAppendScore && !this.evalConfig.getIsForXGB()) {
             CaseScoreResult score = this.modelRunner.computeNsData(rawDataNsMap);
             if(this.modelRunner == null || this.modelRunner.getModelsCnt() == 0 || score == null) {
                 tuple.append(-999.0);

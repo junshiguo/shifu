@@ -48,6 +48,8 @@ public class EvalConfig {
     private String scoreMetaColumnNameFile;
     private Map<String, String> customPaths;
     private Long scoreScale = 1000L;
+    private Boolean isForXGB = false;
+    private Boolean isForClean = false;
     
     /**
      * if eval -norm need norm all columns or final selected columns(finalSelect=true), by default false
@@ -326,6 +328,26 @@ public class EvalConfig {
      */
     public void setNormAllColumns(Boolean normAllColumns) {
         this.normAllColumns = normAllColumns;
+    }
+
+    @JsonIgnore
+    public Boolean getIsForXGB() {
+        return isForXGB;
+    }
+
+    @JsonProperty
+    public void setIsForXGB(Boolean normForXGB) {
+        this.isForXGB = normForXGB;
+    }
+
+    @JsonIgnore
+    public Boolean getIsForClean() {
+        return isForClean;
+    }
+
+    @JsonProperty
+    public void setIsForClean(Boolean isForClean) {
+        this.isForClean = isForClean;
     }
 
 }

@@ -522,6 +522,9 @@ public class EvalModelProcessor extends BasicModelProcessor implements Processor
                 Environment.getProperty(Constants.SHIFU_SCORE_SCALE, Integer.toString(Scorer.DEFAULT_SCORE_SCALE)));
 
         String pigScript = "scripts/EvalNorm.pig";
+        if (evalConfig.getIsForXGB()) {
+            pigScript = "scripts/EvalNormXGB.pig";
+        }
 
         try {
             PigExecutor.getExecutor().submitJob(modelConfig, pathFinder.getScriptPath(pigScript), paramsMap,

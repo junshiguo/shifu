@@ -949,6 +949,16 @@
                         "directive": "input"
                     }
                 ]
+            }, {
+                "name": "isForXGB",
+                "type": "boolean",
+                "directive": "checkbox",
+                "defval": false
+            }, {
+                "name": "isForClean",
+                "type": "boolean",
+                "directive": "checkbox",
+                "defval": false
             }
         ]
     }
